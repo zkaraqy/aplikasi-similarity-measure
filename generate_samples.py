@@ -19,47 +19,43 @@ def create_sample_images():
     background_color = (0, 0, 0)  # Black background
     object_color = (255, 255, 255)  # White objects
     
-    # Sample 1: Rectangle
+    # Sample 1: Gantungan Kunci (Key chain - rectangular with hole)
     img1 = np.zeros((height, width, 3), dtype=np.uint8)
     cv2.rectangle(img1, (150, 120), (250, 200), object_color, -1)
-    cv2.imwrite(os.path.join(output_dir, "sample1_rectangle.png"), img1)
+    cv2.circle(img1, (200, 140), 15, (0, 0, 0), -1)  # Hole for key chain
+    cv2.imwrite(os.path.join(output_dir, "gantungan_kunci.png"), img1)
     
-    # Sample 2: Circle
+    # Sample 2: Jam Tangan (Watch - circular)
     img2 = np.zeros((height, width, 3), dtype=np.uint8)
     cv2.circle(img2, (200, 160), 60, object_color, -1)
-    cv2.imwrite(os.path.join(output_dir, "sample2_circle.png"), img2)
+    cv2.circle(img2, (200, 160), 45, (100, 100, 100), -1)  # Inner circle
+    cv2.imwrite(os.path.join(output_dir, "jam_tangan.png"), img2)
     
-    # Sample 3: Triangle
+    # Sample 3: Piring (Plate - circular with rim)
     img3 = np.zeros((height, width, 3), dtype=np.uint8)
-    triangle_points = np.array([[200, 100], [150, 200], [250, 200]], np.int32)
-    cv2.fillPoly(img3, [triangle_points], object_color)
-    cv2.imwrite(os.path.join(output_dir, "sample3_triangle.png"), img3)
+    cv2.circle(img3, (200, 160), 70, object_color, -1)
+    cv2.circle(img3, (200, 160), 50, (150, 150, 150), -1)  # Inner plate
+    cv2.imwrite(os.path.join(output_dir, "piring.png"), img3)
     
-    # Sample 4: Ellipse
+    # Sample 4: Uang Koin (Coin - circular)
     img4 = np.zeros((height, width, 3), dtype=np.uint8)
-    cv2.ellipse(img4, (200, 160), (80, 50), 45, 0, 360, object_color, -1)
-    cv2.imwrite(os.path.join(output_dir, "sample4_ellipse.png"), img4)
+    cv2.circle(img4, (200, 160), 50, object_color, -1)
+    cv2.imwrite(os.path.join(output_dir, "uang_koin.png"), img4)
     
-    # Sample 5: Pentagon
+    # Sample 5: Wadai (Container - elliptical)
     img5 = np.zeros((height, width, 3), dtype=np.uint8)
-    center = (200, 160)
-    radius = 70
-    pentagon_points = []
-    for i in range(5):
-        angle = i * 2 * np.pi / 5 - np.pi / 2  # Start from top
-        x = int(center[0] + radius * np.cos(angle))
-        y = int(center[1] + radius * np.sin(angle))
-        pentagon_points.append([x, y])
-    pentagon_points = np.array(pentagon_points, np.int32)
-    cv2.fillPoly(img5, [pentagon_points], object_color)
-    cv2.imwrite(os.path.join(output_dir, "sample5_pentagon.png"), img5)
+    cv2.ellipse(img5, (200, 160), (80, 50), 0, 0, 360, object_color, -1)
+    cv2.imwrite(os.path.join(output_dir, "wadai.png"), img5)
     
     print("Sample images created successfully!")
     print("Generated files:")
-    for i in range(1, 6):
-        shapes = ["rectangle", "circle", "triangle", "ellipse", "pentagon"]
-        filename = f"sample{i}_{shapes[i-1]}.png"
-        print(f"  - {filename}")
+    files = ["gantungan_kunci.png", "jam_tangan.png", "piring.png", "uang_koin.png", "wadai.png"]
+    descriptions = ["Gantungan Kunci", "Jam Tangan", "Piring", "Uang Koin", "Wadai"]
+    
+    for filename, desc in zip(files, descriptions):
+        print(f"  - {filename} ({desc})")
+    
+    return True
 
 if __name__ == "__main__":
     create_sample_images()

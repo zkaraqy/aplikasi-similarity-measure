@@ -152,7 +152,7 @@ aplikasi-similarity-measure/
 ## Sample Images
 
 Aplikasi menyediakan 5 sample images dengan bentuk berbeda:
-1. `sample1_rectangle.png` - Bentuk persegi panjang
+1. `piring.png` - Bentuk piring
 2. `sample2_circle.png` - Bentuk lingkaran
 3. `sample3_triangle.png` - Bentuk segitiga
 4. `sample4_ellipse.png` - Bentuk elips
