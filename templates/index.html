@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Similarity Measure</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: Arial, sans-serif;
+        }
+        
+        .main-container {
+            background-color: #e9ecef;
+            border: 2px solid #6c757d;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 1400px;
+        }
+        
+        .app-title {
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .operator-panel {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            height: 100%;
+        }
+        
+        .operator-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 20px;
+            color: #495057;
+        }
+        
+        .operator-btn {
+            width: 100%;
+            margin-bottom: 15px;
+            padding: 12px;
+            font-size: 14px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .operator-btn:hover {
+            background-color: #5a6268;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .operator-btn:disabled {
+            background-color: #adb5bd;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .image-panel {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            height: 400px;
+        }
+        
+        .image-container {
+            width: 100%;
+            height: 100%;
+            background-color: #212529;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .image-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .plot-panel {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            height: 400px;
+        }
+        
+        .plot-container {
+            width: 100%;
+            height: 100%;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .plot-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .info-panel {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            height: 150px;
+            overflow-y: auto;
+        }
+        
+        .table-panel {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            height: 300px;
+        }
+        
+        .table-title {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #495057;
+            text-align: center;
+        }
+        
+        .data-table {
+            font-size: 12px;
+            height: 250px;
+            overflow-y: auto;
+        }
+        
+        .data-table table {
+            width: 100%;
+        }
+        
+        .data-table th {
+            background-color: #e9ecef;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .file-input-group {
+            margin-bottom: 20px;
+        }
+        
+        .alert-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
+            max-width: 400px;
+        }
+        
+        .loading-spinner {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+        }
+        
+        .image-title {
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-container">
+            <!-- Application Title -->
+            <div class="app-title">APLIKASI SIMILARITY MEASURE</div>
+            
+            <!-- Alert Container -->
+            <div class="alert-container" id="alertContainer"></div>
+            
+            <div class="row">
+                <!-- Left Column: Operator Panel -->
+                <div class="col-md-3">
+                    <div class="operator-panel">
+                        <div class="operator-title">Operator</div>
+                        
+                        <!-- File Upload Section -->
+                        <div class="file-input-group">
+                            <input type="file" class="form-control form-control-sm mb-2" id="fileInput" accept="image/*">
+                            
+                            <!-- Sample Image Selection -->
+                            <select class="form-select form-select-sm mb-2" id="sampleSelect">
+                                <option value="">Pilih Citra Sample</option>
+                                {% for image in sample_images %}
+                                <option value="{{ image }}">{{ image }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- Operation Buttons -->
+                        <button class="operator-btn" id="loadBtn">Load Citra</button>
+                        <button class="operator-btn" id="segmentBtn" disabled>Segmentasi</button>
+                        <button class="operator-btn" id="angleBtn" disabled>Angle Signature</button>
+                        <button class="operator-btn" id="normalizeBtn" disabled>Normalisasi</button>
+                        <button class="operator-btn" id="classifyBtn" disabled>Klasifikasi</button>
+                    </div>
+                    
+                    <!-- Information Panel -->
+                    <div class="info-panel mt-3">
+                        <div class="operator-title">Informasi</div>
+                        <div id="infoContent" class="small">
+                            Silakan pilih citra untuk memulai proses analisis similarity measure.
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Middle Column: Image Display -->
+                <div class="col-md-6">
+                    <!-- Original Image -->
+                    <div class="image-panel mb-3">
+                        <div class="image-title">Citra Asal</div>
+                        <div class="image-container" id="originalImageContainer">
+                            <div class="loading-spinner" id="originalSpinner">
+                                <div class="spinner-border text-primary" role="status"></div>
+                            </div>
+                            <div class="text-muted">Tidak ada citra yang dimuat</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Processed Image -->
+                    <div class="image-panel">
+                        <div class="image-title">Citra Hasil</div>
+                        <div class="image-container" id="processedImageContainer">
+                            <div class="loading-spinner" id="processedSpinner">
+                                <div class="spinner-border text-success" role="status"></div>
+                            </div>
+                            <div class="text-muted">Belum ada hasil pemrosesan</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Column: Plot and Tables -->
+                <div class="col-md-3">
+                    <!-- Plot Panel -->
+                    <div class="plot-panel mb-3">
+                        <div class="image-title">Panel</div>
+                        <div class="plot-container" id="plotContainer">
+                            <div class="loading-spinner" id="plotSpinner">
+                                <div class="spinner-border text-info" role="status"></div>
+                            </div>
+                            <div class="text-muted">Plot akan muncul di sini</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- File Table -->
+                        <div class="col-12 mb-3">
+                            <div class="table-panel">
+                                <div class="table-title">Tabel Fitur</div>
+                                <div class="data-table">
+                                    <table class="table table-sm table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>No</th>
+                                                <th>Nama file</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="fileTableBody">
+                                            <tr><td colspan="2" class="text-center text-muted">Tidak ada data</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Similarity Table -->
+                        <div class="col-12">
+                            <div class="table-panel">
+                                <div class="table-title">Tabel Similarity</div>
+                                <div class="data-table">
+                                    <table class="table table-sm table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>No</th>
+                                                <th>Referensi</th>
+                                                <th>Similarity</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="similarityTableBody">
+                                            <tr><td colspan="3" class="text-center text-muted">Tidak ada data</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        class SimilarityMeasureApp {
+            constructor() {
+                this.currentStep = 0;
+                this.initializeEventListeners();
+                this.loadFileTable();
+            }
+            
+            initializeEventListeners() {
+                // Button event listeners
+                document.getElementById('loadBtn').addEventListener('click', () => this.loadImage());
+                document.getElementById('segmentBtn').addEventListener('click', () => this.segmentImage());
+                document.getElementById('angleBtn').addEventListener('click', () => this.calculateAngleSignature());
+                document.getElementById('normalizeBtn').addEventListener('click', () => this.normalizeSignature());
+                document.getElementById('classifyBtn').addEventListener('click', () => this.classifyImage());
+                
+                // File input change
+                document.getElementById('fileInput').addEventListener('change', () => {
+                    this.resetButtons();
+                    this.updateInfo('File dipilih. Klik "Load Citra" untuk memuat.');
+                });
+                
+                // Sample select change
+                document.getElementById('sampleSelect').addEventListener('change', () => {
+                    this.resetButtons();
+                    this.updateInfo('Citra sample dipilih. Klik "Load Citra" untuk memuat.');
+                });
+            }
+            
+            resetButtons() {
+                const buttons = ['segmentBtn', 'angleBtn', 'normalizeBtn', 'classifyBtn'];
+                buttons.forEach(btnId => {
+                    document.getElementById(btnId).disabled = true;
+                });
+                this.currentStep = 0;
+            }
+            
+            enableNextButton() {
+                const buttons = ['segmentBtn', 'angleBtn', 'normalizeBtn', 'classifyBtn'];
+                if (this.currentStep < buttons.length) {
+                    document.getElementById(buttons[this.currentStep]).disabled = false;
+                }
+            }
+            
+            showAlert(message, type = 'info') {
+                const alertContainer = document.getElementById('alertContainer');
+                const alertId = 'alert_' + Date.now();
+                
+                const alertHtml = `
+                    <div class="alert alert-${type} alert-dismissible fade show" id="${alertId}" role="alert">
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+                
+                alertContainer.insertAdjacentHTML('beforeend', alertHtml);
+                
+                // Auto remove after 5 seconds
+                setTimeout(() => {
+                    const alert = document.getElementById(alertId);
+                    if (alert) {
+                        const bsAlert = new bootstrap.Alert(alert);
+                        bsAlert.close();
+                    }
+                }, 5000);
+            }
+            
+            updateInfo(message) {
+                document.getElementById('infoContent').innerHTML = message;
+            }
+            
+            showSpinner(containerId) {
+                const container = document.getElementById(containerId);
+                const spinner = container.querySelector('.loading-spinner');
+                if (spinner) spinner.style.display = 'block';
+            }
+            
+            hideSpinner(containerId) {
+                const container = document.getElementById(containerId);
+                const spinner = container.querySelector('.loading-spinner');
+                if (spinner) spinner.style.display = 'none';
+            }
+            
+            async loadImage() {
+                const fileInput = document.getElementById('fileInput');
+                const sampleSelect = document.getElementById('sampleSelect');
+                
+                if (!fileInput.files.length && !sampleSelect.value) {
+                    this.showAlert('Pilih file atau citra sample terlebih dahulu!', 'warning');
+                    return;
+                }
+                
+                this.showSpinner('originalImageContainer');
+                this.updateInfo('Memuat citra...');
+                
+                const formData = new FormData();
+                if (fileInput.files.length) {
+                    formData.append('file', fileInput.files[0]);
+                } else {
+                    formData.append('sample_image', sampleSelect.value);
+                }
+                
+                try {
+                    const response = await fetch('/load_image', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Display loaded image
+                        const originalContainer = document.getElementById('originalImageContainer');
+                        originalContainer.innerHTML = `<img src="/static/${result.image_path}" alt="Citra Asal">`;
+                        
+                        // Clear processed image
+                        const processedContainer = document.getElementById('processedImageContainer');
+                        processedContainer.innerHTML = '<div class="text-muted">Belum ada hasil pemrosesan</div>';
+                        
+                        this.showAlert(result.message, 'success');
+                        this.updateInfo('Citra berhasil dimuat. Klik "Segmentasi" untuk melanjutkan.');
+                        this.currentStep = 0;
+                        this.enableNextButton();
+                    } else {
+                        this.showAlert(result.message, 'danger');
+                        this.updateInfo('Gagal memuat citra.');
+                    }
+                } catch (error) {
+                    this.showAlert('Error: ' + error.message, 'danger');
+                    this.updateInfo('Terjadi kesalahan saat memuat citra.');
+                } finally {
+                    this.hideSpinner('originalImageContainer');
+                }
+            }
+            
+            async segmentImage() {
+                this.showSpinner('processedImageContainer');
+                this.updateInfo('Melakukan segmentasi citra...');
+                
+                try {
+                    const response = await fetch('/segment_image', {
+                        method: 'POST'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Display segmented image
+                        const processedContainer = document.getElementById('processedImageContainer');
+                        processedContainer.innerHTML = `<img src="/static/${result.segmented_path}" alt="Citra Tersegmentasi">`;
+                        
+                        this.showAlert(result.message, 'success');
+                        this.updateInfo('Segmentasi selesai. Klik "Angle Signature" untuk melanjutkan.');
+                        this.currentStep = 1;
+                        this.enableNextButton();
+                    } else {
+                        this.showAlert(result.message, 'danger');
+                        this.updateInfo('Gagal melakukan segmentasi.');
+                    }
+                } catch (error) {
+                    this.showAlert('Error: ' + error.message, 'danger');
+                    this.updateInfo('Terjadi kesalahan saat segmentasi.');
+                } finally {
+                    this.hideSpinner('processedImageContainer');
+                }
+            }
+            
+            async calculateAngleSignature() {
+                this.showSpinner('plotContainer');
+                this.updateInfo('Menghitung angle signature...');
+                
+                try {
+                    const response = await fetch('/calculate_angle_signature', {
+                        method: 'POST'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Display plot
+                        const plotContainer = document.getElementById('plotContainer');
+                        plotContainer.innerHTML = `<img src="/static/${result.plot_path}" alt="Angle Signature Plot">`;
+                        
+                        this.showAlert(result.message, 'success');
+                        this.updateInfo('Angle signature berhasil dihitung. Klik "Normalisasi" untuk melanjutkan.');
+                        this.currentStep = 2;
+                        this.enableNextButton();
+                    } else {
+                        this.showAlert(result.message, 'danger');
+                        this.updateInfo('Gagal menghitung angle signature.');
+                    }
+                } catch (error) {
+                    this.showAlert('Error: ' + error.message, 'danger');
+                    this.updateInfo('Terjadi kesalahan saat menghitung angle signature.');
+                } finally {
+                    this.hideSpinner('plotContainer');
+                }
+            }
+            
+            async normalizeSignature() {
+                this.showSpinner('plotContainer');
+                this.updateInfo('Melakukan normalisasi signature...');
+                
+                try {
+                    const response = await fetch('/normalize_signature', {
+                        method: 'POST'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Update plot
+                        const plotContainer = document.getElementById('plotContainer');
+                        plotContainer.innerHTML = `<img src="/static/${result.plot_path}" alt="Normalized Signature Plot">`;
+                        
+                        this.showAlert(result.message, 'success');
+                        this.updateInfo('Signature berhasil dinormalisasi. Klik "Klasifikasi" untuk melanjutkan.');
+                        this.currentStep = 3;
+                        this.enableNextButton();
+                    } else {
+                        this.showAlert(result.message, 'danger');
+                        this.updateInfo('Gagal melakukan normalisasi.');
+                    }
+                } catch (error) {
+                    this.showAlert('Error: ' + error.message, 'danger');
+                    this.updateInfo('Terjadi kesalahan saat normalisasi.');
+                } finally {
+                    this.hideSpinner('plotContainer');
+                }
+            }
+            
+            async classifyImage() {
+                this.updateInfo('Melakukan klasifikasi similarity...');
+                
+                try {
+                    const response = await fetch('/classify_similarity', {
+                        method: 'POST'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Update similarity table
+                        this.updateSimilarityTable(result.classification.all_similarities);
+                        
+                        // Show classification result
+                        const classification = result.classification;
+                        const message = `Klasifikasi selesai!<br>
+                                       <strong>Objek terdekat:</strong> ${classification.best_match}<br>
+                                       <strong>Distance:</strong> ${classification.distance.toFixed(6)}`;
+                        
+                        this.showAlert(message, 'success');
+                        this.updateInfo(`Klasifikasi selesai. Objek terdeteksi sebagai: ${classification.best_match}`);
+                    } else {
+                        this.showAlert(result.message, 'danger');
+                        this.updateInfo('Gagal melakukan klasifikasi.');
+                    }
+                } catch (error) {
+                    this.showAlert('Error: ' + error.message, 'danger');
+                    this.updateInfo('Terjadi kesalahan saat klasifikasi.');
+                }
+            }
+            
+            async loadFileTable() {
+                try {
+                    const response = await fetch('/get_file_list');
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        const tbody = document.getElementById('fileTableBody');
+                        if (result.files.length > 0) {
+                            tbody.innerHTML = result.files.map(file => 
+                                `<tr><td>${file.no}</td><td>${file.filename}</td></tr>`
+                            ).join('');
+                        }
+                    }
+                } catch (error) {
+                    console.log('Failed to load file table:', error);
+                }
+            }
+            
+            updateSimilarityTable(similarities) {
+                const tbody = document.getElementById('similarityTableBody');
+                if (similarities && similarities.length > 0) {
+                    tbody.innerHTML = similarities.map((item, index) => 
+                        `<tr>
+                            <td>${index + 1}</td>
+                            <td>${item[0]}</td>
+                            <td>${item[1].toFixed(4)}</td>
+                        </tr>`
+                    ).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Tidak ada data</td></tr>';
+                }
+            }
+        }
+        
+        // Initialize application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            window.app = new SimilarityMeasureApp();
+        });
+    </script>
+</body>
+</html>
