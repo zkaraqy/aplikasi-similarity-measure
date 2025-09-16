@@ -8,14 +8,20 @@ from werkzeug.utils import secure_filename
 import json
 from datetime import datetime
 import math
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Try to import OpenCV, fallback to PIL if not available
 try:
     import cv2
     OPENCV_AVAILABLE = True
+    logger.info("OpenCV loaded successfully")
 except ImportError:
     OPENCV_AVAILABLE = False
-    print("OpenCV not available, using PIL fallback")
+    logger.warning("OpenCV not available, using PIL fallback")
 
 # Set OpenCV to not use GUI
 os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '0'
@@ -30,6 +36,12 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 # Ensure upload directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['PLOTS_FOLDER'], exist_ok=True)
+
+logger.info(f"Flask app initialized")
+logger.info(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
+logger.info(f"Sample folder: {app.config['SAMPLE_FOLDER']}")
+logger.info(f"Plots folder: {app.config['PLOTS_FOLDER']}")
+logger.info(f"OpenCV available: {OPENCV_AVAILABLE}")
 
 # Global variables to store processing results
 current_image = None
@@ -197,6 +209,37 @@ def index():
     """Main application page"""
     sample_images = get_sample_images()
     return render_template('index.html', sample_images=sample_images)
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Railway deployment"""
+    try:
+        # Check if directories exist
+        dirs_exist = all([
+            os.path.exists(app.config['UPLOAD_FOLDER']),
+            os.path.exists(app.config['PLOTS_FOLDER']),
+            os.path.exists(app.config['SAMPLE_FOLDER'])
+        ])
+        
+        # Check if sample images exist
+        sample_images = get_sample_images()
+        
+        logger.info(f"Health check - Sample images: {len(sample_images)}, Directories OK: {dirs_exist}, OpenCV: {OPENCV_AVAILABLE}")
+        
+        return jsonify({
+            'status': 'healthy',
+            'sample_images_count': len(sample_images),
+            'directories_ready': dirs_exist,
+            'opencv_available': OPENCV_AVAILABLE,
+            'timestamp': datetime.now().isoformat()
+        }), 200
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 @app.route('/load_image', methods=['POST'])
 def load_image():
@@ -575,4 +618,29 @@ def get_similarity_table():
         return jsonify({'success': False, 'message': f'Error getting similarity data: {str(e)}'})
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Get port from environment variable (Railway sets this)
+    port = int(os.environ.get('PORT', 5000))
+    
+    logger.info(f"Starting application on port {port}")
+    
+    # Create necessary directories if they don't exist
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    os.makedirs(app.config['PLOTS_FOLDER'], exist_ok=True)
+    os.makedirs(app.config['SAMPLE_FOLDER'], exist_ok=True)
+    
+    logger.info("Directories created/verified")
+    
+    # Generate sample images if they don't exist
+    sample_images = get_sample_images()
+    if not sample_images:
+        logger.info("No sample images found, generating...")
+        try:
+            exec(open('generate_samples.py').read())
+            logger.info("Sample images generated successfully")
+        except Exception as e:
+            logger.error(f"Could not generate sample images: {e}")
+    else:
+        logger.info(f"Found {len(sample_images)} sample images")
+    
+    logger.info(f"Starting Flask app on port {port}")
+    app.run(debug=False, host='0.0.0.0', port=port)
