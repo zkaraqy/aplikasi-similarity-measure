@@ -8,14 +8,20 @@ from werkzeug.utils import secure_filename
 import json
 from datetime import datetime
 import math
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Try to import OpenCV, fallback to PIL if not available
 try:
     import cv2
     OPENCV_AVAILABLE = True
+    logger.info("OpenCV loaded successfully")
 except ImportError:
     OPENCV_AVAILABLE = False
-    print("OpenCV not available, using PIL fallback")
+    logger.warning("OpenCV not available, using PIL fallback")
 
 # Set OpenCV to not use GUI
 os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '0'
@@ -30,6 +36,12 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 # Ensure upload directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['PLOTS_FOLDER'], exist_ok=True)
+
+logger.info(f"Flask app initialized")
+logger.info(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
+logger.info(f"Sample folder: {app.config['SAMPLE_FOLDER']}")
+logger.info(f"Plots folder: {app.config['PLOTS_FOLDER']}")
+logger.info(f"OpenCV available: {OPENCV_AVAILABLE}")
 
 # Global variables to store processing results
 current_image = None
@@ -184,19 +196,158 @@ def get_sample_images():
     """Get list of sample images"""
     sample_path = app.config['SAMPLE_FOLDER']
     if not os.path.exists(sample_path):
-        return []
+        os.makedirs(sample_path, exist_ok=True)
     
     images = []
     for filename in os.listdir(sample_path):
         if allowed_file(filename):
             images.append(filename)
+    
+    # If no sample images, generate them
+    if not images:
+        try:
+            generate_sample_images_embedded()
+            # Recheck after generation
+            for filename in os.listdir(sample_path):
+                if allowed_file(filename):
+                    images.append(filename)
+        except Exception as e:
+            print(f"Could not generate sample images: {e}")
+    
     return sorted(images)
+
+def generate_sample_images_embedded():
+    """Generate sample images embedded in the app"""
+    try:
+        output_dir = app.config['SAMPLE_FOLDER']
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Image dimensions
+        width, height = 400, 400
+        object_color = 255  # White objects
+        
+        if OPENCV_AVAILABLE:
+            # Sample 1: Rectangle
+            img1 = np.zeros((height, width), dtype=np.uint8)
+            cv2.rectangle(img1, (150, 120), (250, 200), object_color, -1)
+            cv2.imwrite(os.path.join(output_dir, "sample1_rectangle.png"), img1)
+            
+            # Sample 2: Circle
+            img2 = np.zeros((height, width), dtype=np.uint8)
+            cv2.circle(img2, (200, 160), 60, object_color, -1)
+            cv2.imwrite(os.path.join(output_dir, "sample2_circle.png"), img2)
+            
+            # Sample 3: Triangle
+            img3 = np.zeros((height, width), dtype=np.uint8)
+            triangle_points = np.array([[200, 100], [150, 200], [250, 200]], np.int32)
+            cv2.fillPoly(img3, [triangle_points], object_color)
+            cv2.imwrite(os.path.join(output_dir, "sample3_triangle.png"), img3)
+            
+            # Sample 4: Ellipse
+            img4 = np.zeros((height, width), dtype=np.uint8)
+            cv2.ellipse(img4, (200, 160), (80, 50), 45, 0, 360, object_color, -1)
+            cv2.imwrite(os.path.join(output_dir, "sample4_ellipse.png"), img4)
+            
+            # Sample 5: Pentagon
+            img5 = np.zeros((height, width), dtype=np.uint8)
+            center = (200, 160)
+            radius = 70
+            pentagon_points = []
+            for i in range(5):
+                angle = i * 2 * np.pi / 5 - np.pi / 2
+                x = int(center[0] + radius * np.cos(angle))
+                y = int(center[1] + radius * np.sin(angle))
+                pentagon_points.append([x, y])
+            pentagon_points = np.array(pentagon_points, np.int32)
+            cv2.fillPoly(img5, [pentagon_points], object_color)
+            cv2.imwrite(os.path.join(output_dir, "sample5_pentagon.png"), img5)
+        else:
+            # PIL fallback
+            from PIL import Image, ImageDraw
+            
+            # Sample 1: Rectangle
+            img1 = Image.new('L', (width, height), 0)
+            draw = ImageDraw.Draw(img1)
+            draw.rectangle([150, 120, 250, 200], fill=255)
+            img1.save(os.path.join(output_dir, "sample1_rectangle.png"))
+            
+            # Sample 2: Circle
+            img2 = Image.new('L', (width, height), 0)
+            draw = ImageDraw.Draw(img2)
+            draw.ellipse([140, 100, 260, 220], fill=255)
+            img2.save(os.path.join(output_dir, "sample2_circle.png"))
+            
+            # Sample 3: Triangle
+            img3 = Image.new('L', (width, height), 0)
+            draw = ImageDraw.Draw(img3)
+            draw.polygon([(200, 100), (150, 200), (250, 200)], fill=255)
+            img3.save(os.path.join(output_dir, "sample3_triangle.png"))
+            
+            # Sample 4: Ellipse
+            img4 = Image.new('L', (width, height), 0)
+            draw = ImageDraw.Draw(img4)
+            draw.ellipse([120, 110, 280, 210], fill=255)
+            img4.save(os.path.join(output_dir, "sample4_ellipse.png"))
+            
+            # Sample 5: Pentagon (simplified as circle for PIL)
+            img5 = Image.new('L', (width, height), 0)
+            draw = ImageDraw.Draw(img5)
+            # Approximate pentagon with polygon
+            points = []
+            center = (200, 160)
+            radius = 70
+            for i in range(5):
+                angle = i * 2 * math.pi / 5 - math.pi / 2
+                x = int(center[0] + radius * math.cos(angle))
+                y = int(center[1] + radius * math.sin(angle))
+                points.append((x, y))
+            draw.polygon(points, fill=255)
+            img5.save(os.path.join(output_dir, "sample5_pentagon.png"))
+        
+        print("Sample images generated successfully!")
+        
+    except Exception as e:
+        print(f"Error generating sample images: {e}")
+        raise
 
 @app.route('/')
 def index():
     """Main application page"""
-    sample_images = get_sample_images()
-    return render_template('index.html', sample_images=sample_images)
+    try:
+        sample_images = get_sample_images()
+        return render_template('index.html', sample_images=sample_images)
+    except Exception as e:
+        print(f"Error in index route: {e}")
+        return f"Application Error: {str(e)}", 500
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Railway"""
+    try:
+        # Check if sample images exist
+        sample_images = get_sample_images()
+        
+        # Check if directories exist
+        dirs_exist = all([
+            os.path.exists(app.config['UPLOAD_FOLDER']),
+            os.path.exists(app.config['PLOTS_FOLDER']),
+            os.path.exists(app.config['SAMPLE_FOLDER'])
+        ])
+        
+        logger.info(f"Health check - Sample images: {len(sample_images)}, Directories OK: {dirs_exist}, OpenCV: {OPENCV_AVAILABLE}")
+        
+        return jsonify({
+            'status': 'healthy',
+            'sample_images_count': len(sample_images),
+            'directories_ready': dirs_exist,
+            'opencv_available': OPENCV_AVAILABLE
+        }), 200
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
 
 @app.route('/load_image', methods=['POST'])
 def load_image():
@@ -574,4 +725,29 @@ def get_similarity_table():
         return jsonify({'success': False, 'message': f'Error getting similarity data: {str(e)}'})
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Get port from environment variable (Railway sets this)
+    port = int(os.environ.get('PORT', 5000))
+    
+    logger.info(f"Starting application on port {port}")
+    
+    # Create necessary directories if they don't exist
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    os.makedirs(app.config['PLOTS_FOLDER'], exist_ok=True)
+    os.makedirs(app.config['SAMPLE_FOLDER'], exist_ok=True)
+    
+    logger.info("Directories created/verified")
+    
+    # Generate sample images if they don't exist
+    sample_images = get_sample_images()
+    if not sample_images:
+        logger.info("No sample images found, generating...")
+        try:
+            exec(open('generate_samples.py').read())
+            logger.info("Sample images generated successfully")
+        except Exception as e:
+            logger.error(f"Could not generate sample images: {e}")
+    else:
+        logger.info(f"Found {len(sample_images)} sample images")
+    
+    logger.info(f"Starting Flask app on port {port}")
+    app.run(debug=False, host='0.0.0.0', port=port)
