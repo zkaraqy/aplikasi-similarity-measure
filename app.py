@@ -1,14 +1,24 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import os
-import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
+matplotlib.use('Agg')  # Use non-interactive backend for server deployment
+import matplotlib.pyplot as plt
 from werkzeug.utils import secure_filename
 import json
 from datetime import datetime
 import math
+
+# Try to import OpenCV, fallback to PIL if not available
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+except ImportError:
+    OPENCV_AVAILABLE = False
+    print("OpenCV not available, using PIL fallback")
+
+# Set OpenCV to not use GUI
+os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '0'
 
 app = Flask(__name__)
 app.secret_key = 'similarity_measure_secret_key'
@@ -36,96 +46,139 @@ def allowed_file(filename):
 def extract_angle_signature_from_image(image_path):
     """Extract real angle signature from an image file"""
     try:
-        # Load image
-        img = cv2.imread(image_path)
-        if img is None:
-            return None
-        
-        # Convert to grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # Apply threshold to create binary image
-        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        
-        # Apply morphological operations to clean up
-        kernel = np.ones((3,3), np.uint8)
-        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
-        
-        # Find contours
-        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        
-        if not contours:
-            return None
-        
-        # Get the largest contour (main object)
-        largest_contour = max(contours, key=cv2.contourArea)
-        
-        # Calculate centroid
-        M = cv2.moments(largest_contour)
-        if M['m00'] == 0:
-            return None
-        
-        cx = int(M['m10'] / M['m00'])
-        cy = int(M['m01'] / M['m00'])
-        
-        # Calculate angle signature - distance from centroid for each angle
-        signature = []
-        angles = np.arange(0, 360, 1)  # 360 points for 0-359 degrees
-        
-        for angle in angles:
-            # Convert angle to radians
-            rad = np.radians(angle)
-            
-            # Find distances for this angle
-            distances = []
-            for point in largest_contour:
-                px, py = point[0]
-                # Calculate angle from centroid to this point
-                point_angle = np.degrees(np.arctan2(py - cy, px - cx))
-                if point_angle < 0:
-                    point_angle += 360
-                
-                # If this point is close to our target angle (within tolerance)
-                angle_diff = abs(point_angle - angle)
-                if angle_diff < 2 or angle_diff > 358:  # Handle wrap-around
-                    distance = np.sqrt((px - cx)**2 + (py - cy)**2)
-                    distances.append(distance)
-            
-            if distances:
-                signature.append(max(distances))  # Take maximum distance for this angle
-            else:
-                # Interpolate from nearby angles if no direct match
-                signature.append(0)
-        
-        # Smooth the signature to handle missing values
-        signature = np.array(signature)
-        for i in range(len(signature)):
-            if signature[i] == 0:
-                # Find nearest non-zero values for interpolation
-                left_val = 0
-                right_val = 0
-                for j in range(1, 10):  # Look within 10 degrees
-                    if i-j >= 0 and signature[i-j] > 0:
-                        left_val = signature[i-j]
-                        break
-                for j in range(1, 10):
-                    if i+j < len(signature) and signature[i+j] > 0:
-                        right_val = signature[i+j]
-                        break
-                
-                if left_val > 0 and right_val > 0:
-                    signature[i] = (left_val + right_val) / 2
-                elif left_val > 0:
-                    signature[i] = left_val
-                elif right_val > 0:
-                    signature[i] = right_val
-        
-        return signature
-        
+        if OPENCV_AVAILABLE:
+            return extract_with_opencv(image_path)
+        else:
+            return extract_with_pil(image_path)
     except Exception as e:
         print(f"Error extracting signature from {image_path}: {e}")
         return None
+
+def extract_with_opencv(image_path):
+    """Extract signature using OpenCV"""
+    # Load image
+    img = cv2.imread(image_path)
+    if img is None:
+        return None
+    
+    # Convert to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    # Apply threshold to create binary image
+    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Apply morphological operations to clean up
+    kernel = np.ones((3,3), np.uint8)
+    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+    binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+    
+    # Find contours
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    
+    if not contours:
+        return None
+    
+    # Get the largest contour (main object)
+    largest_contour = max(contours, key=cv2.contourArea)
+    
+    # Calculate centroid
+    M = cv2.moments(largest_contour)
+    if M['m00'] == 0:
+        return None
+    
+    cx = int(M['m10'] / M['m00'])
+    cy = int(M['m01'] / M['m00'])
+    
+    return calculate_signature_from_contour(largest_contour, cx, cy)
+
+def extract_with_pil(image_path):
+    """Extract signature using PIL as fallback"""
+    from PIL import Image
+    
+    # Load image with PIL
+    img = Image.open(image_path).convert('L')  # Convert to grayscale
+    img_array = np.array(img)
+    
+    # Simple thresholding
+    threshold = np.mean(img_array)
+    binary = (img_array > threshold).astype(np.uint8) * 255
+    
+    # Find contour points (simplified edge detection)
+    edges = []
+    height, width = binary.shape
+    
+    for y in range(1, height-1):
+        for x in range(1, width-1):
+            if binary[y, x] == 255:  # White pixel (object)
+                # Check if it's an edge pixel
+                neighbors = binary[y-1:y+2, x-1:x+2]
+                if np.any(neighbors == 0):  # Has black neighbors
+                    edges.append([[[x, y]]])  # Format like OpenCV contour
+    
+    if not edges:
+        return None
+    
+    # Calculate centroid
+    edges_array = np.array([point[0][0] for point in edges])
+    cx = np.mean(edges_array[:, 0])
+    cy = np.mean(edges_array[:, 1])
+    
+    return calculate_signature_from_contour(edges, cx, cy)
+
+def calculate_signature_from_contour(contour, cx, cy):
+    """Calculate angle signature from contour points and centroid"""
+    signature = []
+    angles = np.arange(0, 360, 1)  # 360 points for 0-359 degrees
+    
+    for angle in angles:
+        # Find distances for this angle
+        distances = []
+        for point in contour:
+            if OPENCV_AVAILABLE:
+                px, py = point[0]
+            else:
+                px, py = point[0][0]  # PIL format
+            
+            # Calculate angle from centroid to this point
+            point_angle = np.degrees(np.arctan2(py - cy, px - cx))
+            if point_angle < 0:
+                point_angle += 360
+            
+            # If this point is close to our target angle (within tolerance)
+            angle_diff = abs(point_angle - angle)
+            if angle_diff < 2 or angle_diff > 358:  # Handle wrap-around
+                distance = np.sqrt((px - cx)**2 + (py - cy)**2)
+                distances.append(distance)
+        
+        if distances:
+            signature.append(max(distances))  # Take maximum distance for this angle
+        else:
+            signature.append(0)
+    
+    # Smooth the signature to handle missing values
+    signature = np.array(signature)
+    for i in range(len(signature)):
+        if signature[i] == 0:
+            # Find nearest non-zero values for interpolation
+            left_val = 0
+            right_val = 0
+            for j in range(1, 10):  # Look within 10 degrees
+                if i-j >= 0 and signature[i-j] > 0:
+                    left_val = signature[i-j]
+                    break
+            for j in range(1, 10):
+                if i+j < len(signature) and signature[i+j] > 0:
+                    right_val = signature[i+j]
+                    break
+            
+            if left_val > 0 and right_val > 0:
+                signature[i] = (left_val + right_val) / 2
+            elif left_val > 0:
+                signature[i] = left_val
+            elif right_val > 0:
+                signature[i] = right_val
+    
+    return signature
 
 def get_sample_images():
     """Get list of sample images"""
@@ -206,24 +259,35 @@ def segment_image():
         if current_image is None:
             return jsonify({'success': False, 'message': 'No image loaded'})
         
-        # Convert to grayscale
-        gray = cv2.cvtColor(current_image, cv2.COLOR_BGR2GRAY)
-        
-        # Apply threshold to create binary image
-        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        
-        # Apply morphological operations to clean up the image
-        kernel = np.ones((3,3), np.uint8)
-        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
-        
-        segmented_image = binary
+        if OPENCV_AVAILABLE:
+            # OpenCV implementation
+            gray = cv2.cvtColor(current_image, cv2.COLOR_BGR2GRAY)
+            _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            kernel = np.ones((3,3), np.uint8)
+            binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+            binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+            segmented_image = binary
+        else:
+            # PIL fallback
+            from PIL import Image
+            if len(current_image.shape) == 3:
+                gray = np.mean(current_image, axis=2).astype(np.uint8)
+            else:
+                gray = current_image
+            
+            threshold = np.mean(gray)
+            segmented_image = (gray > threshold).astype(np.uint8) * 255
         
         # Save segmented image
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         seg_filename = f"segmented_{timestamp}.png"
         seg_path = os.path.join(app.config['UPLOAD_FOLDER'], seg_filename)
-        cv2.imwrite(seg_path, segmented_image)
+        
+        if OPENCV_AVAILABLE:
+            cv2.imwrite(seg_path, segmented_image)
+        else:
+            from PIL import Image
+            Image.fromarray(segmented_image).save(seg_path)
         
         session['segmented_image_path'] = f"uploads/{seg_filename}"
         
