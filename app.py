@@ -501,12 +501,12 @@ def classify_similarity():
                 # Extract shape name from filename for clearer identification
                 if 'gantungan_kunci' in sample_file:
                     shape_name = 'Gantungan Kunci'
-                elif 'jam_tangan' in sample_file:
-                    shape_name = 'Jam Tangan'
+                elif 'gunting' in sample_file:
+                    shape_name = 'Gunting'
                 elif 'piring' in sample_file:
                     shape_name = 'Piring'
-                elif 'uang_koin' in sample_file:
-                    shape_name = 'Uang Koin'
+                elif 'sisir' in sample_file:
+                    shape_name = 'Sisir'
                 elif 'wadai' in sample_file:
                     shape_name = 'Wadai'
                 else:
@@ -595,12 +595,12 @@ def get_similarity_table():
             for i, sample_file in enumerate(sample_images[:5], 1):
                 if 'gantungan_kunci' in sample_file:
                     shape_name = 'Gantungan Kunci'
-                elif 'jam_tangan' in sample_file:
-                    shape_name = 'Jam Tangan'
+                elif 'gunting' in sample_file:
+                    shape_name = 'Gunting'
                 elif 'piring' in sample_file:
                     shape_name = 'Piring'
-                elif 'uang_koin' in sample_file:
-                    shape_name = 'Uang Koin'
+                elif 'sisir' in sample_file:
+                    shape_name = 'Sisir'
                 elif 'wadai' in sample_file:
                     shape_name = 'Wadai'
                 else:

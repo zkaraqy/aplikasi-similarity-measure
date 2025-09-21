@@ -27,7 +27,7 @@ COPY . .
 RUN mkdir -p static/uploads static/plots static/sample_images
 
 # Generate sample images at build time
-RUN python generate_samples.py && echo "Sample images generated successfully" || echo "Sample generation failed, will try at runtime"
+# RUN python generate_samples.py && echo "Sample images generated successfully" || echo "Sample generation failed, will try at runtime"
 
 # Expose port
 EXPOSE $PORT
